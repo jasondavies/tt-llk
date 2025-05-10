@@ -167,12 +167,12 @@ inline void _sfpu_binary_init_()
 {
     if constexpr (BINOP == BinaryOp::DIV)
     {
-        _init_reciprocal_<APPROXIMATION_MODE>();
+        _init_reciprocal_<false>();
     }
     if constexpr (BINOP == BinaryOp::POW)
     {
         // note: calls _init_reciprocal_
-        _init_exponential_<APPROXIMATION_MODE>();
+        _init_exponential_<false>();
     }
 }
 
