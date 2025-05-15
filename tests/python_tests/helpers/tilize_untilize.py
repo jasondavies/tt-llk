@@ -47,6 +47,7 @@ def untilize(tilized_tensor, stimuli_format=DataFormat.Float16_b):
         dtype=(
             format_dict[stimuli_format]
             if stimuli_format in [DataFormat.Float16_b, DataFormat.Float16]
+            else torch.int32 if stimuli_format in [DataFormat.Int32]
             else torch.float32
         )
     )

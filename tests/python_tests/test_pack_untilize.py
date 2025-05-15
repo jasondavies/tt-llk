@@ -13,6 +13,7 @@ from helpers.format_arg_mapping import format_dict
 from helpers.format_config import DataFormat
 from helpers.param_config import (
     clean_params,
+    generate_combination,
     generate_param_ids,
     generate_params,
     input_output_formats,
@@ -32,7 +33,7 @@ def generate_golden(operand1, data_format):
 
 
 # SUPPORTED FORMATS FOR TEST
-supported_formats = [DataFormat.Float16, DataFormat.Float16_b]
+supported_formats = [DataFormat.Float32]
 
 #   INPUT-OUTPUT FORMAT SWEEP
 #   input_output_formats(supported_formats)
@@ -51,7 +52,9 @@ supported_formats = [DataFormat.Float16, DataFormat.Float16_b]
 #   SPECIFIC INPUT-OUTPUT COMBINATION
 #   [InputOutputFormat(DataFormat.Float16, DataFormat.Float32)]
 
-test_formats = input_output_formats(supported_formats)
+#test_formats = input_output_formats(supported_formats)
+test_formats = generate_combination([
+    (DataFormat.Float16_b, DataFormat.Float16_b, DataFormat.Float16_b, DataFormat.Int32, DataFormat.Float32)])
 all_params = generate_params(["pack_untilize_test"], test_formats)
 param_ids = generate_param_ids(all_params)
 
@@ -92,12 +95,12 @@ def test_pack_untilize(testname, formats):
         res_from_L1,
         dtype=(
             format_dict[formats.output_format]
-            if formats.output_format in [DataFormat.Float16, DataFormat.Float16_b]
+            if formats.output_format in [DataFormat.Float16, DataFormat.Float16_b, DataFormat.Float32, DataFormat.Int32]
             else torch.bfloat16
         ),
     )
 
-    if formats.output_format in [DataFormat.Float16_b, DataFormat.Float16]:
+    if formats.output_format in [DataFormat.Float16_b, DataFormat.Float16, DataFormat.Float32, DataFormat.Int32]:
         atol = 0.1
         rtol = 0.05
     elif formats.output_format == DataFormat.Bfp8_b:
