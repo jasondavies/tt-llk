@@ -22,16 +22,6 @@ namespace sfpu
 template <int max_iter = 2>
 sfpi_inline sfpi::vFloat _sfpu_reciprocal_(const sfpi::vFloat in)
 {
-    // Combines the sign and exponent of -1.0 with the mantissa of `in`.
-    // Scale the input value to the range [1.0, 2.0), and make it negative.
-    // If in ≠ ±0 and in ≠ ±inf, then x = in * 2**(127-in.Exp).
-    // If in = ±0 or in = ±inf, then x = ±1.
-    // Then negative_x = -x.
-    sfpi::vFloat negative_x = sfpi::setman(sfpi::vConstNeg1, sfpi::reinterpret<sfpi::vInt>(in));
-
-    // Quadratic initial estimate: y = k2 - k1*x + k0*x**2.
-    sfpi::vFloat y = sfpi::vConstFloatPrgm1 + sfpi::vConstFloatPrgm0 * negative_x;
-
     // Scale factor: we want 1/in = 1/x * scale.
     // For x ≠ ±0 and x ≠ ±inf, in = x * 2**-(127-in.Exp), so 1/in = 1/x * 2**(127-in.Exp).
     // Add float32 bias: scale.Exp = 127+127-in.Exp = 254-in.Exp.
@@ -43,11 +33,25 @@ sfpi_inline sfpi::vFloat _sfpu_reciprocal_(const sfpi::vFloat in)
     // See the scale factor adjustment via scale*0.5 below for further details.
     sfpi::vInt scale_bits = ~sfpi::reinterpret<sfpi::vUInt>(in);
 
-    // Continue with quadratic estimate.
-    y = sfpi::vConstFloatPrgm2 + y * negative_x;
+    // Combines the sign and exponent of -1.0 with the mantissa of `in`.
+    // Scale the input value to the range [1.0, 2.0), and make it negative.
+    // If in ≠ ±0 and in ≠ ±inf, then x = in * 2**(127-in.Exp).
+    // If in = ±0 or in = ±inf, then x = ±1.
+    // Then negative_x = -x.
+    sfpi::vFloat negative_x = sfpi::setman(sfpi::vConstNeg1, sfpi::reinterpret<sfpi::vInt>(in));
+
+    // Quadratic initial estimate: y = k2 - k1*x + k0*x**2.
+    sfpi::vFloat y = sfpi::vConstFloatPrgm1 + sfpi::vConstFloatPrgm0 * negative_x;
 
     // Scale factor: set mantissa to zero.
     sfpi::vFloat scale = sfpi::setman(sfpi::reinterpret<sfpi::vFloat>(scale_bits), 0);
+
+    // Continue with quadratic estimate.
+    y = sfpi::vConstFloatPrgm2 + y * negative_x;
+
+    // Make a copy of scale to preserve its sign; in the case of scale=-0.0, it
+    // will get flushed to +0.0.
+    sfpi::vFloat scale_sign = -scale;
 
     // First iteration of Newton-Raphson: t = 1.0 - x*y.
     sfpi::vFloat t = sfpi::vConst1 + negative_x * y;
@@ -56,7 +60,7 @@ sfpi_inline sfpi::vFloat _sfpu_reciprocal_(const sfpi::vFloat in)
     // If scale = ±inf, then scale*0.5 = ±inf and scale.Exp=255.
     // If scale = ±0, then scale*0.5 = 0 and scale.Exp=0.
     // Otherwise, scale.Exp = scale.Exp-1 = 255-in.Exp-1 = 254-in.Exp.
-    scale *= 0.5f;
+    scale *= -0.5f;
 
     // Continue Newton-Raphson: y = y + y*t.
     y = y + y * t;
@@ -68,9 +72,10 @@ sfpi_inline sfpi::vFloat _sfpu_reciprocal_(const sfpi::vFloat in)
         y = y + y * t;
     }
 
-    // Apply scaling factor, and set sign to match input.
+    // Apply scaling factor.
     y = y * scale;
-    y = sfpi::setsgn(y, in);
+    // Set sign to avoid flushing -0.0 to +0.0.
+    y = sfpi::setsgn(y, scale_sign);
 
     return y;
 }
